@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -217,6 +216,9 @@ footer {
             Solicitar inspeção
         </button>
 
+        <button type="submit" id="botaoRemoto" style="background:#15803d; margin-top:8px">
+            Não tenho aproximação
+        </button>
     </form>
 
     <p id="mensagem" role="status"></p>
@@ -275,6 +277,7 @@ footer {
                     <th>Temperatura</th>
                     <th>Umidade</th>
                     <th>Data e horário</th>
+                    <th>Modalidade</th>
                 </tr>
             </thead>
 
@@ -501,7 +504,8 @@ async function atualizar() {
                 r.nome || "Não informado",
                 r.temperatura.toFixed(1) + " °C",
                 r.umidade.toFixed(1) + " %",
-                formatarData(r.horario)
+                formatarData(r.horario),
+                r.tipo === "remota" ? "Remota" : "Presencial"
             ];
 
             for (const valor of valores) {
@@ -529,6 +533,7 @@ async function atualizar() {
             solicitacaoAtual = null;
 
             el("botao").disabled = false;
+            el("botaoRemoto").disabled = false;
         }
 
     } catch (erro) {
@@ -550,21 +555,31 @@ el("formInspecao").addEventListener("submit", async evento => {
 
     if (!nome || nome.length > 40) return;
 
+    const remota = evento.submitter?.id === "botaoRemoto";
+    if (el("botao").disabled) return;
     el("botao").disabled = true;
+    el("botaoRemoto").disabled = true;
 
     el("mensagem").textContent = "Enviando solicitação...";
     el("mensagem").style.color = "#38bdf8";
 
     try {
 
+        if (remota) {
+            const dados = await ler("/medicoes.json");
+            if (!dados || !numero(dados.horario) ||
+                Math.abs(Date.now() - dados.horario) > 30000) {
+                throw new Error("Sensor offline ou leitura desatualizada.");
+            }
+        }
         const resposta = await fetch(
-            banco + "/solicitacoes.json",
+            banco + (remota ? "/solicitacoesRemotas.json" : "/solicitacoes.json"),
             {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ nome })
+                body: JSON.stringify(remota ? { nome, horario: { ".sv": "timestamp" } } : { nome })
             }
         );
 
@@ -577,6 +592,7 @@ el("formInspecao").addEventListener("submit", async evento => {
         solicitacaoAtual = resultado.name;
 
         el("mensagem").textContent =
+            remota ? "Solicitação remota enviada! Aguarde o ESP8266." :
             "Solicitação enviada! Aproxime o chaveiro do leitor RFID.";
 
         el("nome").value = "";
@@ -591,20 +607,22 @@ el("formInspecao").addEventListener("submit", async evento => {
                     "Confirmação ainda não recebida. Consulte o histórico.";
 
                 el("botao").disabled = false;
+            el("botaoRemoto").disabled = false;
 
                 solicitacaoAtual = null;
             }
 
-        }, 10000);
+        }, remota ? 30000 : 10000);
 
     } catch (erro) {
 
         el("mensagem").textContent =
-            "Erro ao enviar solicitação.";
+            "Erro ao enviar solicitação: " + erro.message;
 
         el("mensagem").style.color = "#f87171";
 
         el("botao").disabled = false;
+            el("botaoRemoto").disabled = false;
     }
 });
 
@@ -616,4 +634,3 @@ setInterval(atualizar, 5000);
 
 </body>
 </html>
-
