@@ -566,11 +566,19 @@ el("formInspecao").addEventListener("submit", async evento => {
     try {
 
         if (remota) {
-            const dados = await ler("/medicoes.json");
-            if (!dados || !numero(dados.horario) ||
-                Math.abs(Date.now() - dados.horario) > 30000) {
-                throw new Error("Sensor offline ou leitura desatualizada.");
-            }
+    const dados = await ler("/medicoes.json");
+
+    const horario = Number(dados?.horario);
+    const idade = Date.now() - horario;
+
+    console.log("Medicoes:", dados);
+    console.log("Idade da leitura:", idade / 1000, "segundos");
+
+    if (!dados || !Number.isFinite(horario) ||
+        horario <= 0 || idade > 60000 || idade < -5000) {
+        throw new Error("Sensor offline ou leitura desatualizada.");
+    }
+}
         }
         const resposta = await fetch(
             banco + (remota ? "/solicitacoesRemotas.json" : "/solicitacoes.json"),
