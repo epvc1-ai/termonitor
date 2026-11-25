@@ -420,7 +420,7 @@ async function atualizar() {
 
             const recente =
                 numero(dados.horario) &&
-                Math.abs(Date.now() - dados.horario) < 60000;
+                Math.abs(Date.now() - dados.horario) < 10000;
 
             el("status").textContent = recente
                 ? "● Sensor online | " + formatarData(dados.horario)
