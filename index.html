@@ -187,7 +187,7 @@ footer {
     <div class="card">
         <h2>Inspeções recentes</h2>
         <div id="total" class="valor">--</div>
-        <span class="status">Últimos 100 registros</span>
+        <span class="status">Últimos 300 registros</span>
     </div>
 
 </div>
@@ -403,7 +403,7 @@ async function atualizar() {
 
         const [dados, inspecoes] = await Promise.all([
             ler("/medicoes.json"),
-            ler('/inspecoes.json?orderBy=%22%24key%22&limitToLast=100')
+            ler('/inspecoes.json?orderBy=%22%24key%22&limitToLast=300')
         ]);
 
         if (
