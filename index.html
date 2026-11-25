@@ -1,1 +1,619 @@
 
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThermoMonitor</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #0f172a;
+    color: #f1f5f9;
+    font-family: Arial, sans-serif;
+}
+
+header {
+    padding: 30px 20px;
+    background: #111827;
+    border-bottom: 1px solid #334155;
+}
+
+header h1 {
+    color: #38bdf8;
+    margin: 0;
+    font-size: 34px;
+}
+
+header p {
+    color: #94a3b8;
+}
+
+main {
+    max-width: 1200px;
+    margin: auto;
+    padding: 20px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    padding: 24px;
+    border-radius: 16px;
+    margin-bottom: 20px;
+}
+
+.valor {
+    font-size: 42px;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.temperatura {
+    color: #fb923c;
+}
+
+.umidade {
+    color: #38bdf8;
+}
+
+h2 {
+    font-size: 19px;
+    margin-top: 0;
+}
+
+input {
+    width: 100%;
+    padding: 15px;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    background: #0f172a;
+    color: white;
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+
+button {
+    background: #0284c7;
+    color: white;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:hover {
+    background: #0369a1;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+canvas {
+    width: 100% !important;
+    max-height: 300px;
+}
+
+.tabela {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+th, td {
+    padding: 14px;
+    text-align: left;
+    border-bottom: 1px solid #334155;
+}
+
+th {
+    color: #38bdf8;
+}
+
+.status {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+footer {
+    text-align: center;
+    padding: 25px;
+    color: #94a3b8;
+}
+
+@media print {
+    body, .card, header {
+        background: white;
+        color: black;
+    }
+
+    .nao-imprimir, button {
+        display: none;
+    }
+
+    .card {
+        break-inside: avoid;
+    }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+</head>
+
+<body>
+
+<header>
+    <h1>ThermoMonitor</h1>
+    <p>Sistema inteligente de monitoramento ambiental IoT</p>
+    <span id="status" class="status">Conectando ao Firebase...</span>
+</header>
+
+<main>
+
+<div class="grid">
+
+    <div class="card">
+        <h2>Temperatura atual</h2>
+        <div id="temperatura" class="valor temperatura">-- °C</div>
+        <span class="status">Sensor AM2303</span>
+    </div>
+
+    <div class="card">
+        <h2>Umidade relativa</h2>
+        <div id="umidade" class="valor umidade">-- %</div>
+        <span class="status">Sensor AM2303</span>
+    </div>
+
+    <div class="card">
+        <h2>Inspeções recentes</h2>
+        <div id="total" class="valor">--</div>
+        <span class="status">Últimos 100 registros</span>
+    </div>
+
+</div>
+
+<div class="card nao-imprimir">
+
+    <h2>Registrar nova inspeção</h2>
+
+    <form id="formInspecao">
+
+        <label for="nome">Nome ou apelido do responsável</label>
+
+        <input
+            type="text"
+            id="nome"
+            placeholder="Digite seu nome ou apelido"
+            maxlength="40"
+            required
+        >
+
+        <p class="status">
+            Utilize uma identificação que você autorize
+            exibir no relatório público.
+        </p>
+
+        <button type="submit" id="botao">
+            Solicitar inspeção
+        </button>
+
+    </form>
+
+    <p id="mensagem" role="status"></p>
+
+</div>
+
+<div class="grid">
+
+    <div class="card">
+        <h2>Histórico de temperatura</h2>
+        <canvas id="graficoTemp"></canvas>
+    </div>
+
+    <div class="card">
+        <h2>Histórico de umidade</h2>
+        <canvas id="graficoUmid"></canvas>
+    </div>
+
+</div>
+
+<div class="grid">
+
+    <div class="card">
+        <h2>Temperatura mínima</h2>
+        <div id="minima" class="valor temperatura">--</div>
+    </div>
+
+    <div class="card">
+        <h2>Temperatura média</h2>
+        <div id="media" class="valor temperatura">--</div>
+    </div>
+
+    <div class="card">
+        <h2>Temperatura máxima</h2>
+        <div id="maxima" class="valor temperatura">--</div>
+    </div>
+
+</div>
+
+<div class="card">
+
+    <h2>Relatório de inspeções</h2>
+
+    <button onclick="window.print()">
+        Imprimir / Salvar PDF
+    </button>
+
+    <br><br>
+
+    <div class="tabela">
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Responsável</th>
+                    <th>Temperatura</th>
+                    <th>Umidade</th>
+                    <th>Data e horário</th>
+                </tr>
+            </thead>
+
+            <tbody id="historico"></tbody>
+        </table>
+
+    </div>
+
+</div>
+
+</main>
+
+<footer>
+    ThermoMonitor — ESP8266 | AM2303 | RFID | IoT
+</footer>
+
+<script>
+
+const banco =
+    "https://thermomonitor-c8e41-default-rtdb.firebaseio.com";
+
+const el = id => document.getElementById(id);
+
+let graficoTemp;
+let graficoUmid;
+let solicitacaoAtual = null;
+let atualizando = false;
+
+function numero(valor) {
+    return typeof valor === "number" && Number.isFinite(valor);
+}
+
+function formatarData(valor) {
+    if (!valor) return "--";
+
+    const data = new Date(valor);
+
+    return Number.isNaN(data.getTime())
+        ? "--"
+        : data.toLocaleString("pt-BR");
+}
+
+function criarGrafico(id, titulo, cor) {
+
+    if (typeof Chart === "undefined") return null;
+
+    return new Chart(el(id), {
+        type: "line",
+
+        data: {
+            labels: [],
+            datasets: [{
+                label: titulo,
+                data: [],
+                borderColor: cor,
+                backgroundColor: cor + "22",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3
+            }]
+        },
+
+        options: {
+            responsive: true,
+
+            plugins: {
+                legend: {
+                    labels: {
+                        color: "#f1f5f9"
+                    }
+                }
+            },
+
+            scales: {
+                x: {
+                    ticks: {
+                        color: "#94a3b8",
+                        maxTicksLimit: 6
+                    },
+                    grid: {
+                        color: "#334155"
+                    }
+                },
+
+                y: {
+                    ticks: {
+                        color: "#94a3b8"
+                    },
+                    grid: {
+                        color: "#334155"
+                    }
+                }
+            }
+        }
+    });
+}
+
+graficoTemp = criarGrafico(
+    "graficoTemp", "Temperatura (°C)", "#fb923c"
+);
+
+graficoUmid = criarGrafico(
+    "graficoUmid", "Umidade (%)", "#38bdf8"
+);
+
+async function ler(caminho) {
+
+    const resposta = await fetch(banco + caminho, {
+        cache: "no-store"
+    });
+
+    if (!resposta.ok) {
+        throw new Error("Falha na comunicação");
+    }
+
+    return resposta.json();
+}
+
+async function atualizar() {
+
+    if (atualizando) return;
+
+    atualizando = true;
+
+    try {
+
+        const [dados, inspecoes] = await Promise.all([
+            ler("/medicoes.json"),
+            ler('/inspecoes.json?orderBy=%22%24key%22&limitToLast=100')
+        ]);
+
+        if (
+            dados &&
+            numero(dados.temperatura) &&
+            numero(dados.umidade)
+        ) {
+
+            el("temperatura").textContent =
+                dados.temperatura.toFixed(1) + " °C";
+
+            el("umidade").textContent =
+                dados.umidade.toFixed(1) + " %";
+
+            const recente =
+                numero(dados.horario) &&
+                Math.abs(Date.now() - dados.horario) < 60000;
+
+            el("status").textContent = recente
+                ? "● Sensor online | " + formatarData(dados.horario)
+                : "Última leitura: " + formatarData(dados.horario)
+                  + " — atualização não confirmada";
+
+        } else {
+
+            el("temperatura").textContent = "-- °C";
+            el("umidade").textContent = "-- %";
+
+            el("status").textContent =
+                "Firebase conectado — aguardando ESP8266";
+        }
+
+        const registros = Object.entries(inspecoes || {})
+            .filter(([id, r]) =>
+                r &&
+                numero(r.temperatura) &&
+                numero(r.umidade)
+            )
+            .map(([id, r]) => ({ ...r, id }))
+            .sort((a, b) =>
+                (a.horario || 0) - (b.horario || 0)
+            );
+
+        el("total").textContent = registros.length;
+
+        const temperaturas =
+            registros.map(r => r.temperatura);
+
+        const umidades =
+            registros.map(r => r.umidade);
+
+        const horarios = registros.map(r =>
+            formatarData(r.horario)
+        );
+
+        if (graficoTemp) {
+            graficoTemp.data.labels = horarios;
+            graficoTemp.data.datasets[0].data = temperaturas;
+            graficoTemp.update();
+        }
+
+        if (graficoUmid) {
+            graficoUmid.data.labels = horarios;
+            graficoUmid.data.datasets[0].data = umidades;
+            graficoUmid.update();
+        }
+
+        if (temperaturas.length > 0) {
+
+            el("minima").textContent =
+                Math.min(...temperaturas).toFixed(1) + " °C";
+
+            el("maxima").textContent =
+                Math.max(...temperaturas).toFixed(1) + " °C";
+
+            el("media").textContent = (
+                temperaturas.reduce((a, b) => a + b, 0)
+                / temperaturas.length
+            ).toFixed(1) + " °C";
+
+        } else {
+
+            el("minima").textContent = "--";
+            el("media").textContent = "--";
+            el("maxima").textContent = "--";
+        }
+
+        el("historico").replaceChildren();
+
+        for (const r of [...registros].reverse()) {
+
+            const linha = document.createElement("tr");
+
+            const valores = [
+                r.nome || "Não informado",
+                r.temperatura.toFixed(1) + " °C",
+                r.umidade.toFixed(1) + " %",
+                formatarData(r.horario)
+            ];
+
+            for (const valor of valores) {
+
+                const celula = document.createElement("td");
+
+                celula.textContent = valor;
+
+                linha.appendChild(celula);
+            }
+
+            el("historico").appendChild(linha);
+        }
+
+        if (
+            solicitacaoAtual &&
+            registros.some(r => r.id === solicitacaoAtual)
+        ) {
+
+            el("mensagem").textContent =
+                "Inspeção registrada com sucesso!";
+
+            el("mensagem").style.color = "#4ade80";
+
+            solicitacaoAtual = null;
+
+            el("botao").disabled = false;
+        }
+
+    } catch (erro) {
+
+        el("status").textContent =
+            "Falha na conexão — dados podem estar desatualizados.";
+
+    } finally {
+
+        atualizando = false;
+    }
+}
+
+el("formInspecao").addEventListener("submit", async evento => {
+
+    evento.preventDefault();
+
+    const nome = el("nome").value.trim();
+
+    if (!nome || nome.length > 40) return;
+
+    el("botao").disabled = true;
+
+    el("mensagem").textContent = "Enviando solicitação...";
+    el("mensagem").style.color = "#38bdf8";
+
+    try {
+
+        const resposta = await fetch(
+            banco + "/solicitacoes.json",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ nome })
+            }
+        );
+
+        if (!resposta.ok) {
+            throw new Error("Solicitação recusada");
+        }
+
+        const resultado = await resposta.json();
+
+        solicitacaoAtual = resultado.name;
+
+        el("mensagem").textContent =
+            "Solicitação enviada! Aproxime o chaveiro do leitor RFID.";
+
+        el("nome").value = "";
+
+        const id = solicitacaoAtual;
+
+        setTimeout(() => {
+
+            if (solicitacaoAtual === id) {
+
+                el("mensagem").textContent =
+                    "Confirmação ainda não recebida. Consulte o histórico.";
+
+                el("botao").disabled = false;
+
+                solicitacaoAtual = null;
+            }
+
+        }, 60000);
+
+    } catch (erro) {
+
+        el("mensagem").textContent =
+            "Erro ao enviar solicitação.";
+
+        el("mensagem").style.color = "#f87171";
+
+        el("botao").disabled = false;
+    }
+});
+
+atualizar();
+
+setInterval(atualizar, 5000);
+
+</script>
+
+</body>
+</html>
+
